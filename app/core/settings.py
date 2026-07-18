@@ -1,9 +1,9 @@
 """Validated application settings loaded from environment variables."""
 
 from functools import lru_cache
-from typing import Literal
+from typing import Literal, Self
 
-from pydantic import Field, SecretStr, field_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 from sqlalchemy.engine import URL
 
@@ -38,6 +38,18 @@ class Settings(BaseSettings):
     db_connect_timeout: int = Field(default=5, ge=1)
     db_ready_timeout: float = Field(default=3.0, gt=0)
     db_echo: bool = False
+    http_timeout: float = Field(default=10.0, gt=0)
+    http_max_connections: int = Field(default=100, ge=1)
+    http_max_keepalive_connections: int = Field(default=20, ge=0)
+    http_keepalive_expiry: float = Field(default=5.0, gt=0)
+
+    @model_validator(mode="after")
+    def keepalive_connections_must_fit_http_pool(self) -> Self:
+        if self.http_max_keepalive_connections > self.http_max_connections:
+            raise ValueError(
+                "http_max_keepalive_connections cannot exceed http_max_connections"
+            )
+        return self
 
     @field_validator("db_host", "db_name", "db_charset")
     @classmethod

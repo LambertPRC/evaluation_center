@@ -2,6 +2,7 @@ from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
+from httpx import AsyncClient
 
 from app.api.router import router as api_router
 from app.core.settings import Settings, get_settings
@@ -10,6 +11,7 @@ from app.db.engine import (
     create_database_resources,
     dispose_database_resources,
 )
+from app.infra.http_client import create_http_client, dispose_http_client
 
 
 def create_app(settings: Settings | None = None) -> FastAPI:
@@ -18,15 +20,21 @@ def create_app(settings: Settings | None = None) -> FastAPI:
     @asynccontextmanager
     async def lifespan(application: FastAPI) -> AsyncIterator[None]:
         resources: DatabaseResources | None = None
-        if application_settings.database_configured:
-            resources = create_database_resources(application_settings)
-
-        application.state.settings = application_settings
-        application.state.database = resources
+        http_client: AsyncClient | None = None
         try:
+            if application_settings.database_configured:
+                resources = create_database_resources(application_settings)
+            http_client = create_http_client(application_settings)
+
+            application.state.settings = application_settings
+            application.state.database = resources
+            application.state.http_client = http_client
             yield
         finally:
-            await dispose_database_resources(resources)
+            try:
+                await dispose_http_client(http_client)
+            finally:
+                await dispose_database_resources(resources)
 
     application = FastAPI(
         title="Evaluation Center",

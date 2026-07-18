@@ -30,3 +30,14 @@ def test_database_url_requires_credentials() -> None:
 
     with pytest.raises(DatabaseConfigurationError):
         settings.database_url("asyncmy")
+
+
+def test_http_keepalive_connections_cannot_exceed_total_connections() -> None:
+    with pytest.raises(
+        ValueError,
+        match="http_max_keepalive_connections cannot exceed http_max_connections",
+    ):
+        Settings(
+            http_max_connections=10,
+            http_max_keepalive_connections=11,
+        )
