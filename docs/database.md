@@ -49,6 +49,30 @@ Do not edit files under `app/db/generated/` by hand. Repository queries,
 business rules, and Pydantic API schemas belong in separate hand-written
 modules.
 
+## ORM repositories
+
+Every generated model has a typed repository exported from `app.repositories`.
+Each repository provides `create`, `get`, `list`, `update`, and `delete` async
+methods. Scalar primary keys can be passed directly; use a mapping for composite
+keys so the field names remain explicit:
+
+```python
+from datetime import date
+
+from app.repositories import market_daily_bar_repository
+
+async with session.begin():
+    daily_bar = await market_daily_bar_repository.get(
+        session,
+        {"instrument_id": 1, "trade_date": date(2026, 7, 18)},
+    )
+```
+
+Write methods flush but never commit or roll back. Services own the transaction
+boundary, either with `session.begin()` or an explicit `commit()` / `rollback()`.
+Repository create, update, and filter values accept mapped column names only;
+primary keys cannot be changed by `update`.
+
 ## Check schema drift
 
 Run:
